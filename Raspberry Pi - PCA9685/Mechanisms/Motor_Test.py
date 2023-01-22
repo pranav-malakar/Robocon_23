@@ -19,7 +19,7 @@ m4p1 = 13
 m4p2 = 15
 m4en = 14
 
-#Initializing 1 x PCA9685 with I2C address and PWM frequency
+#Initializing PCA9685 and PWM frequency
 SET_FREQ = 100
 PCA9685 = Adafruit_PCA9685.PCA9685()
 PCA9685.set_pwm_freq(SET_FREQ)
