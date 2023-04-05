@@ -24,9 +24,9 @@ def convert(X, Y, R, P, A):
     #DRIVE
     if X or Y:
         
-        w_R = int(4000*((-0.5*X)+(0.5*Y)))  # speed of LEFT WHEEL
-        w_L = int(4000*((-0.5*X)+(-0.5*Y)))  # speed of RIGHT WHEEL
-        w_B = int(4000*((1*X)+(0*Y)))  # speed of BACK WHEEL
+        w_R = int(40*((-0.5*X)+(0.5*Y)))  # speed of LEFT WHEEL
+        w_L = int(40*((-0.5*X)+(-0.5*Y)))  # speed of RIGHT WHEEL
+        w_B = int(40*((1*X)+(0*Y)))  # speed of BACK WHEEL
 
         Motor.speed(0, w_L)  # wheel left
         Motor.speed(1, w_R)  # wheel right
