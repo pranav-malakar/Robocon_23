@@ -27,7 +27,7 @@ from machine import UART
 class IBus ():
     
     # Number of channels (FS-iA6B has 6)
-    def __init__ (self, uart_num, baud=115200, num_channels=10): #change the "num_channels" according to the receiver
+    def __init__ (self, uart_num, baud=115200, num_channels=6): #CHANGE THE NUMBER OF CHANNEL ACCORDING TO THE RECEIVER
         self.uart_num = uart_num
         self.baud = baud
         self.uart = UART(self.uart_num, self.baud)
@@ -83,3 +83,4 @@ class IBus ():
             return (int(-(value - 1500) / 5))
         
     
+

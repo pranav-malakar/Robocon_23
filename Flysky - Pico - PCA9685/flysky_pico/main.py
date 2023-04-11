@@ -14,7 +14,7 @@ while True:
             IBus.normalize(res[2]),
             IBus.normalize(res[3]),
             IBus.normalize(res[4]),
-            IBus.normalize(res[5], type="dial"),
-            IBus.normalize(res[8], type="dial")),
+            IBus.normalize(res[5]),
+            IBus.normalize(res[6])),
             end="")
         print (" - {}".format(time.ticks_ms()))

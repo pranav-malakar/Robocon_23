@@ -1,7 +1,8 @@
 import pca9685
 # https://github.com/adafruit/micropython-adafruit-pca9685
 
-_DC_MOTORS = ((0, 2, 1), (4, 6, 5), (8, 10, 9), (15, 13, 14),(11,12,7)) #[en, in2, in1] (M1), (M2), (M3), (PICK), (LINEAR ACCUATOR)
+# [en, in2, in1] (M1), (M2), (M3), (PICK), (LINEAR ACCUATOR)
+_DC_MOTORS = ((0, 2, 1), (4, 6, 5), (8, 10, 9), (15, 13, 14), (11, 12, 7))
 
 
 class DCMotors:
@@ -43,3 +44,4 @@ class DCMotors:
         self._pin(in1, True)
         self._pin(in2, True)
         self.pca9685.duty(pwm, 0)
+
