@@ -14,11 +14,13 @@ GPIO.setwarnings(False)
 #Setting up MQTT client
 mqttBroker = "127.0.0.1"
 client = mqtt.Client("DS4")
-client.connect(mqttBroker,port=1883)
+#keepalive attribute added to resolve issue of disconnection due to inactivity
+client.connect(mqttBroker,port=1883,keepalive=500)
 
 #Required for setting up DS4
 pygame.init()
 os.environ["SDL_VIDEORIVER"] = "x11"
+#Required for running the program through SSH
 os.putenv('DISPLAY',':0.0')
 controller = pygame.joystick.Joystick(0)
 
@@ -38,6 +40,8 @@ M - Motor
 LA - Linear Actuator
 S - Servo
 P - Piston
+PM - Picking Motor
+FM - FLipping Motor
 
                              __________________
                              ||______________||
@@ -45,9 +49,9 @@ P - Piston
                           // ||              || \\
                         //   ||LA1        LA2||   \\          
                      S1 |____||______________||____| S2                          
-                        |                          |
+                   PM1 ||                          || PM2
                         |__________________________|
-                        |                          |
+                        |                  ||| FM  |
                         |      \            /      |
                         |        \        /        |
                         |          \    /          |
@@ -75,8 +79,18 @@ m3p1 = 9
 m3p2 = 10
 m3en = 8
 
+pick_mp1 = 14
+pick_mp2 = 13
+pick_men = 15
+
+la_mp1 = 7
+la_mp2 = 12
+la_men = 11
+
+la_state=0
+
 #Initializing PCA9685 with I2C address and PWM frequency
-SET_FREQ = 100
+SET_FREQ = 169
 Motor = Adafruit_PCA9685.PCA9685(0x40)
 Motor.set_pwm_freq(SET_FREQ)
 
@@ -147,15 +161,15 @@ def botrotate(dir):
 
     Motor.set_pwm(m1p1, 0, (not dir)*4095) 
     Motor.set_pwm(m1p2, 0, dir*4095)
-    Motor.set_pwm(m1en, 0, 350)
+    Motor.set_pwm(m1en, 0, 600)
     
     Motor.set_pwm(m2p1, 0, (not dir)*4095)  
     Motor.set_pwm(m2p2, 0, dir*4095)
-    Motor.set_pwm(m2en, 0, 350)
+    Motor.set_pwm(m2en, 0, 600)
     
     Motor.set_pwm(m3p1, 0, (not dir)*4095) 
     Motor.set_pwm(m3p2, 0, dir*4095)
-    Motor.set_pwm(m3en, 0, 350)
+    Motor.set_pwm(m3en, 0, 600)
 
 '''
 #This function is used for drifting the bot
@@ -196,6 +210,46 @@ def botstop():
 
     print("Bot stop")    
 
+#This function is used for the movement of motor which is responsible for picking
+def pickmove(dir):
+    if not dir:
+        print("Picking moving upwards")
+    else:
+        print("Picking moving downwards")
+
+    Motor.set_pwm(pick_mp1, 0, (not dir)*4095) 
+    Motor.set_pwm(pick_mp2, 0, dir*4095)
+    Motor.set_pwm(pick_men, 0, 300)
+
+#This function is used for stopping the movement of motor which is responsible for picking
+def pickstop():
+    Motor.set_pwm(pick_mp1, 0, 4095) 
+    Motor.set_pwm(pick_mp2, 0, 4095)
+    Motor.set_pwm(pick_men, 0, 0)
+
+def lamotion():
+    global la_state
+    Motor.set_pwm(la_mp1, 0, (not la_state)*4095)
+    Motor.set_pwm(la_mp2, 0, la_state*4095)
+    if la_state==0:
+        print("Linear Actuator Extend")
+    else:
+        print("Linear Actuator Retract")
+    la_state=not la_state
+
+def send_data(val):
+    d={'t':0,'s':0,'o':0}
+    d[val]=1
+    data=json.dumps(d)
+    client.publish("Relay",data)
+    #This loop is used to take the push of Triangle button as a single command regardless of the duration it is pressed for
+    while True:
+        temp=getJS()
+        if temp[val]:
+            continue
+        else:
+            break
+
 #Main program starts
 while True:
     
@@ -216,38 +270,51 @@ while True:
                 botrotate(dir=1)
             elif jsVal['dpadup']:
                 #dpadup moves the bot upwards with a slow speed
-                botmove(0,-0.5)
+                botmove(0,-0.65)
             elif jsVal['dpaddown']:
                 #dpaddown moves the bot downwards with a slow speed
-                botmove(0,0.5)   
+                botmove(0,0.65)   
             elif jsVal['dpadleft']:
                 #dpaddown moves the bot in left direction with a slow speed
-                botmove(-0.5,0)   
+                botmove(-0.65,0)   
             elif jsVal['dpadright']:
                 #dpadup moves the bot in right direction with a slow speed
-                botmove(0.5,0)       
+                botmove(0.65,0)       
         else:
             #If the joystick is not moved or L1,R1 or DPAD buttons are not pressed then both the pins of the motor will be given a high signal
             botstop()
 
+        if jsVal['L2'] or jsVal['R2']:
+            if jsVal['L2']:
+                #L1 moves the ring plate in the upward direction
+                pickmove(dir=0)
+            elif jsVal['R2']:
+                #R1 moves the ring plate in the upward direction
+                pickmove(dir=1)
+        else:
+            #If L2,R2 are not pressed then both the pins of the motor will be given a high signal
+            pickstop()
+        
+        #x extends or retracts linear actuator depending on the current state
+        if jsVal['x']:
+            while True:
+                temp=getJS()
+                if temp['x']:
+                    continue
+                else:
+                    break
+            lamotion()
+
         #Publishing data for controlling relay
         if jsVal['t']:
+            send_data('t')
+        
+        #Publishing data for controlling servo
+        if jsVal['s']:
+            send_data('s')
 
-            d={}
-            d['t']=jsVal['t']
-            data=json.dumps(d)
-            client.publish("Relay",data)
-            if jsVal['t']:
-                #This loop is used to take the push of Triangle button as a single command regardless of the duration it is pressed for
-                while True:
-                    temp=getJS()
-                    if temp['t']:
-                        continue
-                    else:
-                        break
-            #To save the resources, we are only publishing the data when the key is pressed and when the key is not pressed we will only publish the data one time for value '0' 
-            d['t']=jsVal['t']
-            data=json.dumps(d)
-            client.publish("Relay",data)
+        #Publishing data for controlling motor for flipping
+        if jsVal['o']:
+            send_data('o')
         
         time.sleep(0.005)
