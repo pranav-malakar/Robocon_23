@@ -1,12 +1,11 @@
+#RR_Client
 #Importing necessary header files
-from easy_comms import Easy_comms
+from machine import Pin, UART, PWM
 from time import sleep
-from machine import Pin
-import json
 
-sleep(5)
 #Setting pin and baud rate for communication between Pico to Pico
-com1 = Easy_comms(0,9600)
+
+uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
 
 '''
 Rabbit Robot
@@ -40,37 +39,46 @@ FM - FLipping Motor
                                      
         
 '''
-'''
+
 #Defining pins for picking and flipping motors, linear actuator, servo
-pick_mp1 = Pin(,Pin.OUT)
-pick_mp2 = Pin(,Pin.OUT)
-pick_men = PWM(Pin())
+relay = Pin(8,Pin.OUT)
 
-la_mp1 = Pin(,Pin.OUT)
-la_mp2 = Pin(,Pin.OUT)
-la_men = PWM(Pin())
+pick_mp1 = Pin(5,Pin.OUT)
+pick_mp2 = Pin(6,Pin.OUT)
+pick_men = PWM(Pin(7))
 
-la_state = 0
+la_mp1 = Pin(4,Pin.OUT)
+la_mp2 = Pin(3,Pin.OUT)
+la_men = PWM(Pin(2))
 
+#la_state = 0
+
+'''
 servo1 = PWM(Pin())
 servo2 = PWM(Pin())
-'''
-'''
-flip_mp1 = Pin(,Pin.OUT)
-flip_mp2 = Pin(,Pin.OUT)
-flip_en = PWM(Pin())
+
+flip_mp1 = Pin(10,Pin.OUT)
+flip_mp2 = Pin(11,Pin.OUT)
+flip_en = PWM(Pin(12))
 '''
 
 #Funtion for reading data from Pico1
-command = {'x1':0 , 'y1':0 , 'x2':0 , 'y2':0 , 'b1':0 , 'b2':0 } 
+no_of_channels=6
+command = [0]*no_of_channels
+
 def readval():
     
     global command
-    message = com1.read()
-    if message is not None:
-        command = json.loads(message)
+    if uart.any():
+        try:
+            message_bytes = uart.read()
+            message = message_bytes.decode('utf-8')
+            if message.find(',')!=-1:
+                command = list(map(int,message.split(",")))
+                #print(command)
+        except:
+            pass            
 
-'''
 #This function is used for the movement of motor which is responsible for picking
 def pickmove(dir):
     
@@ -90,24 +98,40 @@ def pickstop():
     pick_mp2.value(1)
     pick_men.duty_u16(0)
     
+    #print("Picking stop")
+    
 #This function is used more movement of linear actuator
-def lamotion():
+def lamotion(val):
 
-    global la_state
-    la_mp1.value(not la_state)
-    la_mp2.value(la_state)
-    if la_state==0:
+    if val>30:
+        la_mp1.value(1)
+        la_mp2.value(0)
         print("Linear Actuator Extend")
-    else:
+    elif val<-30:
+        la_mp1.value(0)
+        la_mp2.value(1)
         print("Linear Actuator Retract")
-    la_state = not la_state
-'''  
+    else:
+        la_mp1.value(0)
+        la_mp2.value(0)
+        
 #Main program starts
+la_men.duty_u16(65032)
 while True:
     
     readval()
-    print(command)
+    if command[2]>80: #command[2] is used for picking
+        pickmove(dir=0)
+    elif command[2]<-80:
+        pickmove(dir=1)
+    else:
+        pickstop()
     
-    sleep(1)
+    lamotion(command[4]) #command[4] is used for controlling motion of linear actuator
     
-
+    if command[5]>0: #command[5] is used for controlling relay
+        print("Relay on")
+        relay.value(1)
+    else:
+        print("Relay off")
+        relay.value(0)
