@@ -1,16 +1,14 @@
 #RR_Server
 #Importing necessary header files
-from easy_comms import Easy_comms
 from machine import Pin, PWM, UART
 from time import sleep
 from ibus import IBus
-import json
-
-#Setting pin and baud rate for communication between Pico to Pico
-com1 = Easy_comms(0,9600)
 
 #Setting commuincation channel between Flysky and Pico
 ibus_in = IBus(1)
+
+#Setting channel, baud rate and pins for communication between Pico to Pico
+uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
 
 '''
 Rabbit Robot
@@ -46,33 +44,32 @@ FM - FLipping Motor
 '''
 
 #Defining pins for motors
-m1p1 = Pin(2,Pin.OUT)
+m1p1 = Pin(4,Pin.OUT)
 m1p2 = Pin(3,Pin.OUT)
-m1en = PWM(Pin(4))
+m1en = PWM(Pin(2))
 
-m2p1 = Pin(6,Pin.OUT)
+m2p1 = Pin(8,Pin.OUT)
 m2p2 = Pin(7,Pin.OUT)
-m2en = PWM(Pin(8))
+m2en = PWM(Pin(6))
 
-m3p1 = Pin(10,Pin.OUT)
+m3p1 = Pin(12,Pin.OUT)
 m3p2 = Pin(11,Pin.OUT)
-m3en = PWM(Pin(12))
+m3en = PWM(Pin(10))
 
 #Funtion for reading data from Flysky and Sending it to Pico2
-command = {'x1':0 , 'y1':0 , 'x2':0 , 'y2':0 , 'b1':0 , 'b2':0 } 
+no_of_channels=6
+command = [0]*no_of_channels
 def readval():
     
     global command
     res = ibus_in.read()
     if res[0]:
-        command['x1'] = IBus.normalize(res[1])
-        command['y1'] = IBus.normalize(res[2])
-        command['x2'] = IBus.normalize(res[3])
-        command['y2'] = IBus.normalize(res[4])
-        command['b1'] = IBus.normalize(res[5])
-        command['b2'] = IBus.normalize(res[6])
-        com1.send(str(json.dumps(command)))
-        print(command)
+        for i in range(0,no_of_channels):
+            command[i] = IBus.normalize(res[i+1])
+    #print(command)
+    message=','.join(map(str,command))
+    uart.write(message.encode('utf-8'))
+
     
 #This function is used for moving the bot
 def botmove(Vx,Vy): #Vx is the x component and Vy is the y component
@@ -137,6 +134,14 @@ def botstop():
 
 #Main program starts
 while True:
-    readval()
-    sleep(1)
 
+    readval()
+    if command[0] or command[1]: #command[0] and command[1] is x and y motion of joystick
+        botmove(-command[0],command[1])
+    elif command[3]>80: #command[3] is used for rotating the bot
+        botrotate(dir=0)
+    elif command[3]<-80:
+        botrotate(dir=1)
+    else:  
+        botstop()
+    sleep(0.01)
