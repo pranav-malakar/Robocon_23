@@ -43,5 +43,6 @@ class DCMotors:
         pwm, in2, in1 = _DC_MOTORS[index]
         self._pin(in1, True)
         self._pin(in2, True)
-        self.pca9685.duty(pwm, 0)
+        #self.pca9685.duty(pwm, 0)
+        self.pca9685.duty(pwm, 2047)
 
