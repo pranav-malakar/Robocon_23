@@ -149,7 +149,6 @@ def botstop():
 
 nrf = NRF24L01(SPI(cfg["spi"]), csn, ce, channel = 100, payload_size=20)
 nrf.open_rx_pipe(0, pipe)
-nrf.open_tx_pipe(pipe);
 nrf.set_power_speed(POWER_1, SPEED_2M) # power1 = -12 dBm, speed_2m = 2 mbps
 nrf.start_listening()
 print('readSensorLoop, waiting for packets... (ctrl-C to stop)')
