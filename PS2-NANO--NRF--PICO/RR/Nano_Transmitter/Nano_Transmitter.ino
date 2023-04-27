@@ -19,8 +19,8 @@ PS2X ps2x; // create PS2 Controller Class
 
 RF24 radio(A0, 10); // CE, CSN
 
-// unsigned long tstart;
-// unsigned long tstop;
+unsigned long tstart;
+unsigned long tstop;
 
 int error = 0;
 byte type = 0;
@@ -71,14 +71,18 @@ void setup() {
   // radio.enableAckPayload();
   // radio.enableDynamicPayloads();
   radio.setChannel(100);
-  radio.setPayloadSize(20);
+  radio.setPayloadSize(20); 
   radio.setDataRate(RF24_2MBPS);
-  radio.openWritingPipe(address); //set the writing (pipe) address
-  radio.stopListening(); //Set module as transmitter
+  radio.setPALevel(RF24_PA_MAX);
+  radio.openWritingPipe(address);
+  radio.stopListening();
 }
 
 void loop() {
-
+  if (error)  {
+    return;
+  }
+  else{
   ps2x.read_gamepad(false, 0x0); //read controller
   //analog JS readings
   PS_arr[0] = ps2x.Analog(PSS_LX);	
@@ -91,21 +95,19 @@ void loop() {
       PS_arr[p] = ps2x.Button(i);
     }
 
-  // tstart = micros();
-  // while (!radio.isAckPayloadAvailable()) {}
-  //   radio.read(&rec, sizeof(int));
-  //   tstop = micros();
+    tstart = micros();
   if (radio.write(&PS_arr, sizeof(PS_arr))) {
+  // while (!radio.isAckPayloadAvailable()) {}
+  //   zradio.read(&rec, sizeof(int));
+    tstop = micros();
    for (int j=0; j<=19; j++) {
     Serial.print(PS_arr[j]);
     Serial.print(" ");
   }
-  Serial.println();
+  //Serial.println();
+  Serial.println((tstop-tstart)/2); 
   }
-  // Serial.print(rec[0]);
-  // Serial.print(" ");
-  // Serial.println((tstop-tstart)/2); 
+  }
   
   //memset(&PS_arr, 0, sizeof(PS_arr));
-  
 }
