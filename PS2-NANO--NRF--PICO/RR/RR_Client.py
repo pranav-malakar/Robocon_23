@@ -52,16 +52,18 @@ m3p1 = Pin(12,Pin.OUT)
 m3p2 = Pin(11,Pin.OUT)
 m3en = PWM(Pin(10))
 
-#Funtion for reading data from Pico2
-no_of_channels=20
+#Function for reading data from Pico2
+no_of_channels=6
 command = [0]*no_of_channels
 def readval():
     
     global command
+    #We are using exceptional handling so as to avoid unicode error
     if uart.any():
         try:
             message_bytes = uart.read()
             message = message_bytes.decode('utf-8')
+            #Checking if the correct data is recieved
             if message.find(',')!=-1:
                 command = list(map(int,message.split(",")))
                 #print(command)
@@ -135,9 +137,9 @@ while True:
     readval()
     if command[0] or command[1]: #command[0] and command[1] is x and y motion of joystick
         botmove(-command[0],command[1])
-    elif command[4]: #command[3] is used for rotating the bot
+    elif command[4]: #command[4] is used for rotating the bot clockwise
         botrotate(dir=0)
-    elif command[5]:
+    elif command[5]: #command[4] is used for rotating the bot anti-clockwise
         botrotate(dir=1)
     else:  
         botstop()
