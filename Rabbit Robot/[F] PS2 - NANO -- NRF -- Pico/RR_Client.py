@@ -1,27 +1,10 @@
-#RR_Server
+#RR_Client
 #Importing necessary header files
-from machine import Pin, UART, PWM, SPI
+from machine import Pin, PWM, UART
 from time import sleep
-import ustruct as struct
-from nrf24l01 import *
-from micropython import const
 
 #Setting channel, baud rate and pins for communication between Pico to Pico
 uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
-
-#Setting up SPI pins for NRF
-pipe = (b"\x41\x41\x41\x41\x41") # 'AAAAA' on the ardinuo
-spi = SPI(0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
-cfg = {"spi": 0, "miso": 16, "mosi": 19, "sck": 18, "csn": 17, "ce": 20} 
-csn = Pin(cfg["csn"], mode=Pin.OUT, value=1)
-ce = Pin(cfg["ce"], mode=Pin.OUT, value=0)
-
-#Initializing NRF
-nrf = NRF24L01(SPI(cfg["spi"]), csn, ce, channel = 100, payload_size=20)
-nrf.open_rx_pipe(0, pipe)
-nrf.set_power_speed(POWER_1, SPEED_2M) # power1 = -12 dBm, speed_2m = 2 mbps
-nrf.start_listening()
-print('readSensorLoop, waiting for packets... (ctrl-C to stop)')
 
 '''
 Rabbit Robot
@@ -56,108 +39,108 @@ FM - FLipping Motor
         
 '''
 
-#Defining pins for picking and flipping motors, linear actuator, servo
-relay = Pin(8,Pin.OUT)
+#Defining pins for motors
+m1p1 = Pin(4,Pin.OUT)
+m1p2 = Pin(3,Pin.OUT)
+m1en = PWM(Pin(2,Pin.OUT))
 
-pick_mp1 = Pin(5,Pin.OUT)
-pick_mp2 = Pin(6,Pin.OUT)
-pick_men = PWM(Pin(7,Pin.OUT))
+m2p1 = Pin(8,Pin.OUT)
+m2p2 = Pin(7,Pin.OUT)
+m2en = PWM(Pin(6,Pin.OUT))
 
-la_mp1 = Pin(4,Pin.OUT)
-la_mp2 = Pin(3,Pin.OUT)
-la_men = PWM(Pin(2,Pin.OUT))
+m3p1 = Pin(12,Pin.OUT)
+m3p2 = Pin(11,Pin.OUT)
+m3en = PWM(Pin(10,Pin.OUT))
 
-la_state = 0
-
-servo1 = PWM(Pin(14,Pin.OUT))
-servo2 = PWM(Pin(15,Pin.OUT))
-
-flip_mp1 = Pin(10,Pin.OUT)
-flip_mp2 = Pin(11,Pin.OUT)
-flip_en = PWM(Pin(12,Pin.OUT))
-
-
-#Funtion for reading data from NRF and sending to PICO2
-no_of_channels=20
-JS_values = [0]*no_of_channels
-
+#Function for reading data from Pico2
+no_of_channels=4
+command = [0]*no_of_channels
 def readval():
-    global JS_values
-    if nrf.any():
-        while nrf.any():
-            buf = nrf.recv()
-            JS_values = list(struct.unpack("20B",buf))
-            JS_values[0] -= 132
-            JS_values[1] -= 123
-            JS_values[2] -= 123
-            JS_values[3] -= 123
-            #print(JS_values)
-        
-    message=','.join(map(str,JS_values[2:4]+JS_values[14:16]))
-    uart.write(message.encode('utf-8'))    
     
-#This function is used for the movement of motor which is responsible for picking
-def pickmove(dir):
+    global command
+    #We are using exceptional handling so as to avoid unicode error
+    if uart.any():
+        try:
+            message_bytes = uart.read()
+            message = message_bytes.decode('utf-8')
+            #Checking if the correct data is recieved
+            if message.find(',')!=-1:
+                command = list(map(int,message.split(",")))
+                #print(command)
+        except:
+            pass
     
+#This function is used for moving the bot
+def botmove(Vx,Vy): #Vx is the x component and Vy is the y component
+    
+    #Theses values are derived using inverse kinematics
+    m1speed=int(250*((-0.5*Vx)+(0.5*Vy)))
+    m2speed=int(250*((-0.5*Vx)+(-0.5*Vy)))
+    m3speed=int(250*((1*Vx)+(0*Vy)))
+    
+    #Checking the individual motor values
+    print("Bot move -",m1speed,m2speed,m3speed)
+    
+    #If the calculated speed is negative then the direction of the motor is reversed
+    m1p1.value(m1speed>=0)
+    m1p2.value(m1speed<=0)
+    m1en.duty_u16(abs(m1speed))
+    
+    m2p1.value(m2speed>=0)
+    m2p2.value(m2speed<=0)
+    m2en.duty_u16(abs(m2speed))
+    
+    m3p1.value(m3speed>=0)
+    m3p2.value(m3speed<=0)
+    m3en.duty_u16(abs(m3speed))
+
+#This function is used for rotating the bot
+def botrotate(dir):
+
     if not dir:
-        print("Picking moving upwards")
+        print("Bot Rotate Anti-Clockwise")
     else:
-        print("Picking moving downwards")
+        print("Bot Rotate Clockwise")
+    
+    m1p1.value(not dir)
+    m1p2.value(dir)
+    m1en.duty_u16(8000)
+    
+    m2p1.value(not dir)
+    m2p2.value(dir)
+    m2en.duty_u16(8000)
+    
+    m3p1.value(not dir)
+    m3p2.value(dir)
+    m3en.duty_u16(8000)
 
-    pick_mp1.value(not dir)
-    pick_mp2.value(dir)
-    pick_men.duty_u16(6500)
+#This function is used for stopping the bot
+def botstop():
+    
+    m1p1.value(1)
+    m1p2.value(1)
+    m1en.duty_u16(0)
+    
+    m2p1.value(1)
+    m2p2.value(1)
+    m2en.duty_u16(0)
+    
+    m3p1.value(1)
+    m3p2.value(1)
+    m3en.duty_u16(0)
+    
+    print("Bot stop")
 
-#This function is used for stopping the movement of motor which is responsible for picking
-def pickstop():
-    
-    pick_mp1.value(1)
-    pick_mp2.value(1)
-    pick_men.duty_u16(0)
-    
-    #print("Picking stop")
-    
-#This function is used more movement of linear actuator
-def lamotion():
-
-    global la_state
-    
-    if la_state==0:
-        la_mp1.value(1)
-        la_mp2.value(0)
-        la_state=1
-        print("Linear Actuator Extend")
-    else:
-        la_mp1.value(0)
-        la_mp2.value(1)
-        la_state=0
-        print("Linear Actuator Retract")
-        
 #Main program starts
-la_men.duty_u16(65032)
-
 while True:
-    
+
     readval()
-    if JS_values[1]>75: #Left Joystick Y axis is used for picking
-        pickmove(dir=1)
-    elif JS_values[1]<-75:
-        pickmove(dir=0)
-    else:
-        pickstop()
-    
-    if JS_values[18]: #X is used for controlling motion of linear actuator
-        while True:
-            readval()
-            if not JS_values[18]:
-                break
-        lamotion() 
-    
-    if JS_values[16]>0: #Triangle is used for controlling relay
-        print("Relay on")
-        relay.value(1)
-    else:
-        #print("Relay off")
-        relay.value(0)
-    
+    if command[0] or command[1]: #Right Joystick is used for x and y motion of the bot
+        botmove(-command[0],command[1])
+    elif command[2]: #L1 is used for rotating the bot clockwise
+        botrotate(dir=0)
+    elif command[3]: #R1 is used for rotating the bot anti-clockwise
+        botrotate(dir=1)
+    else:  
+        botstop()
     sleep(0.01)
