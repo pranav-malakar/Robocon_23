@@ -1,6 +1,6 @@
 #RR_Server
 #Importing necessary header files
-from machine import Pin, UART, PWM
+from machine import Pin, UART, PWM, SPI
 from time import sleep
 import ustruct as struct
 from nrf24l01 import *
@@ -11,7 +11,8 @@ uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
 
 #Setting up SPI pins for NRF
 pipe = (b"\x41\x41\x41\x41\x41") # 'AAAAA' on the ardinuo
-cfg = {"spi": 0, "miso": 4, "mosi": 7, "sck": 6, "csn": 14, "ce": 17}   
+spi = SPI(0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
+cfg = {"spi": 0, "miso": 16, "mosi": 19, "sck": 18, "csn": 17, "ce": 20} 
 csn = Pin(cfg["csn"], mode=Pin.OUT, value=1)
 ce = Pin(cfg["ce"], mode=Pin.OUT, value=0)
 
@@ -54,32 +55,32 @@ FM - FLipping Motor
                                      
         
 '''
-'''
+
 #Defining pins for picking and flipping motors, linear actuator, servo
 relay = Pin(8,Pin.OUT)
 
 pick_mp1 = Pin(5,Pin.OUT)
 pick_mp2 = Pin(6,Pin.OUT)
-pick_men = PWM(Pin(7))
+pick_men = PWM(Pin(7,Pin.OUT))
 
 la_mp1 = Pin(4,Pin.OUT)
 la_mp2 = Pin(3,Pin.OUT)
-la_men = PWM(Pin(2))
+la_men = PWM(Pin(2,Pin.OUT))
+la_state = 0
 
-#la_state = 0
-
-'''
-'''
-servo1 = PWM(Pin())
-servo2 = PWM(Pin())
+servo1 = PWM(Pin(14,Pin.OUT))
+servo1.freq(50)
+servo2 = PWM(Pin(15,Pin.OUT))
+servo2.freq(50)
+servo_feed_state = 0
 
 flip_mp1 = Pin(10,Pin.OUT)
 flip_mp2 = Pin(11,Pin.OUT)
-flip_en = PWM(Pin(12))
-'''
+flip_en = PWM(Pin(12,Pin.OUT))
+
 
 #Funtion for reading data from NRF and sending to PICO2
-no_of_channels=20
+no_of_channels = 20
 JS_values = [0]*no_of_channels
 
 def readval():
@@ -93,8 +94,8 @@ def readval():
             JS_values[2] -= 123
             JS_values[3] -= 123
             #print(JS_values)
-    print(JS_values)
-    message=','.join(map(str,JS_values[0:4]+JS_values[14:16]))
+        
+    message=','.join(map(str,JS_values[2:4]+JS_values[14:16]))
     uart.write(message.encode('utf-8'))    
     
 #This function is used for the movement of motor which is responsible for picking
@@ -116,43 +117,73 @@ def pickstop():
     pick_mp2.value(1)
     pick_men.duty_u16(0)
     
-    print("Picking stop")
-    
-#This function is used more movement of linear actuator
-def lamotion(val):
+    #print("Picking stop")
 
-    if val>30:
+#This function is used more movement of linear actuator
+def lamotion():
+
+    global la_state
+    
+    if la_state==0:
         la_mp1.value(1)
         la_mp2.value(0)
+        la_state=1
         print("Linear Actuator Extend")
-    elif val<-30:
-        la_mp1.value(0)
-        la_mp2.value(1)
-        print("Linear Actuator Retract")
     else:
         la_mp1.value(0)
-        la_mp2.value(0)
+        la_mp2.value(1)
+        la_state=0
+        print("Linear Actuator Retract")
+        
+def servofeed():
+    
+    global servo_feed_state
+    
+    #2500 = 0 degree, 7500 = 180 degree
+    if servo_feed_state==0:
+        servo1.duty_u16(3500)
+        servo2.duty_u16(6500)
+        servo_feed_state=1
+        print("Servo Scoop Out")
+    else:
+        servo1.duty_u16(6500)
+        servo2.duty_u16(3500)
+        servo_feed_state=0
+        print("Servo Scoop In")
+    
         
 #Main program starts
 la_men.duty_u16(65032)
+
 while True:
     
     readval()
-    '''
-    if command[2]>80: #command[2] is used for picking
-        pickmove(dir=0)
-    elif command[2]<-80:
+    if JS_values[1]>75: #Left Joystick Y axis is used for picking
         pickmove(dir=1)
+    elif JS_values[1]<-75:
+        pickmove(dir=0)
     else:
         pickstop()
     
-    lamotion(command[4]) #command[4] is used for controlling motion of linear actuator
+    if JS_values[18]: #X is used for controlling motion of linear actuator
+        while True:
+            readval()
+            if not JS_values[18]:
+                break
+        lamotion()
     
-    if command[5]>0: #command[5] is used for controlling relay
+    if JS_values[19]: #Square is used for controlling motion of linear actuator
+        while True:
+            readval()
+            if not JS_values[19]:
+                break
+        servofeed() 
+    
+    if JS_values[16]>0: #Triangle is used for controlling relay
         print("Relay on")
         relay.value(1)
     else:
-        print("Relay off")
+        #print("Relay off")
         relay.value(0)
-    '''
-    sleep(0.005)
+    
+    sleep(0.01)
