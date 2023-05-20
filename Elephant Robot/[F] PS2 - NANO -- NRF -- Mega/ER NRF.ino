@@ -1,7 +1,8 @@
 #include <nRF24L01.h>
 #include <RF24.h>
-#define laser A8
-#define sensor A10
+
+#define laser A2
+#define sensor A1
 // Including the necesary libraries
 
 #include "CytronMotorDriver.h"
@@ -11,25 +12,23 @@
 RF24 radio(48, 49); // CE, CSN
 
 // BTS Picking Mechanism Pins
-#define pickinglpwm 5
-#define pickingrpwm 6
+#define pickinglpwm 6
+#define pickingrpwm 5
 
 // Lead Screw Shooting Mechanism Pins
 #define shootinglpwm 8
 #define shootingrpwm 7
 
 // L298N Feeding Mechanism Pins
-#define feedingPWM 47
-#define feedingIN1 45
-#define feedingIN2 43
+#define feedingPWM 30
+#define feedingIN1 32
+#define feedingIN2 34
 
 // Relay Module Pins for the Throwing and Picking Mechanism
 #define relay1 31
 #define relay2 29
 #define relay3 27
 #define relay4 25
-#define relayvcc 23
-#define relaygnd 33
 
 #define max_pwm 60
 
@@ -38,10 +37,10 @@ uint8_t IN[20];                  // Controller Data
 // analog values[0-255] ----> (x_L, y_L, x_R, y_R), (SELECT,L3,R3,START,UP,RIGHT,DOWN,LEFT,L2,R2,L1,R1,TRIANGLE,CIRCLE,CROSS,SQUARE) <---- boolean values[0-1]
 
 // Cytron Motor Driver Pins For the Drive
-CytronMD motor1(PWM_DIR, 11, A13);
-CytronMD motor2(PWM_DIR, 12, A12);
-CytronMD motor3(PWM_DIR, 10, A14);
-CytronMD motor4(PWM_DIR, 9, A15);
+CytronMD motor1(PWM_DIR, 12, A13);
+CytronMD motor2(PWM_DIR, 11, A12);
+CytronMD motor3(PWM_DIR, 10, A15);
+CytronMD motor4(PWM_DIR, 9, A14);
 
 // Inverse Kinematics code for the Drive
 void convert(int x, int y)
@@ -50,8 +49,8 @@ void convert(int x, int y)
   // float WHEEL_GEOMETRY = 0.550 + 0.229; // Hight and width meters
   float WHEEL_RADIUS = 0.0785; // radius in meters
 
-  x = 123 - x;
-  y = y - 123;
+  x = 128 - x;
+  y = y - 128;
 
   float front_left = (x - y) / WHEEL_RADIUS;
   float front_right = (x + y) / WHEEL_RADIUS;
@@ -65,9 +64,9 @@ void convert(int x, int y)
 
   char output[100];
   sprintf(output, "Wheel 1 -> %-4d Wheel 2 -> %-4d Wheel 3 -> %-4d Wheel 4 -> %-4d", front_left_, front_right_, back_left_, back_right_);
-  Serial.println(output);
+  //Serial.println(output);
 
-  Serial.println(String(front_left) + " " + String(front_right) + " " + String(back_left) + " " + String(back_right));
+  //Serial.println(String(front_left) + " " + String(front_right) + " " + String(back_left) + " " + String(back_right));
 
   motor2.setSpeed(front_left_);  // Motor 1 stops.
   motor3.setSpeed(front_right_); // Motor 2 stops.
@@ -80,7 +79,6 @@ void setup()
   Serial.begin(9600);
   pinMode(laser, OUTPUT);
   pinMode(sensor, INPUT);
-  digitalWrite(laser, HIGH);
   radio.begin();
   if (radio.isChipConnected())
   {
@@ -120,7 +118,7 @@ void setup()
 }
 void loop()
 {
-  bool laservalue = digitalRead(sensor);
+ 
   if (radio.available())
   {
     radio.read(&IN, sizeof(IN));
@@ -152,23 +150,26 @@ void loop()
 
   // delay(10);
   // Picking Mechanism Right A and B Buttons On the Controller
-  if (IN[12] == 1 && laservalue == 0)
+  if (IN[12] == 1)
   {
-    analogWrite(pickinglpwm, 255);
-    analogWrite(pickingrpwm, 0);
-    Serial.println("Pickup - going high");
-    // delay(100);
-  }
-  else if (IN[12] == 1 && laservalue == 1)
-  {
+    digitalWrite(laser, HIGH);
+    bool laservalue = digitalRead(sensor);
+    if(laservalue == 0)
+    {
+      analogWrite(pickinglpwm, 200);
+      analogWrite(pickingrpwm, 0);
+      Serial.println("Pickup - going high");
+    }
+    else
+    {
     analogWrite(pickinglpwm, 0);
     analogWrite(pickingrpwm, 0);
-    Serial.println("Pickup Stop");
+    }
   }
   else if (IN[13] == 1)
   {
     analogWrite(pickinglpwm, 0);
-    analogWrite(pickingrpwm, 255);
+    analogWrite(pickingrpwm, 200);
     Serial.println("Pickup - going low");
     // delay(100);
   }
@@ -176,6 +177,7 @@ void loop()
   {
     analogWrite(pickinglpwm, 0);
     analogWrite(pickingrpwm, 0);
+    digitalWrite(laser, LOW);
   }
   // Feeding Mechanism Right C Button On the Controller
   if (IN[8] == 1)
