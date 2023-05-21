@@ -1,10 +1,11 @@
 #RR_Server
 #Importing necessary header files
-from machine import Pin, UART, PWM, SPI
+from machine import Pin, UART, PWM, SPI, I2C
 from time import sleep
 import ustruct as struct
 from nrf24l01 import *
 from micropython import const
+from pca9685 import PCA9685
 
 #Setting channel, baud rate and pins for communication between Pico to Pico
 uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
@@ -23,6 +24,18 @@ nrf.set_power_speed(POWER_1, SPEED_2M) # power1 = -12 dBm, speed_2m = 2 mbps
 nrf.start_listening()
 print('readSensorLoop, waiting for packets... (ctrl-C to stop)')
 
+#Setting up I2c pins for PCA9685
+SDA = Pin(6)
+SCL = Pin(7)
+#i2c = I2C(id=1, sda=SDA, scl=SCL,freq=400000)
+
+#Initializing PCA9685
+PCA1_ADDR = 0x41 
+i2c = I2C(id=1, sda=SDA, scl=SCL, freq=400000) 
+print("device found at address:", hex(i2c.scan()[0]))
+pca=PCA9685(i2c=i2c,address=0x41)
+pca.freq(100)
+
 '''
 Rabbit Robot
 
@@ -31,17 +44,17 @@ LA - Linear Actuator
 S - Servo
 P - Piston
 PM - Picking Motor
-FM - FLipping Motor
+
 
                              __________________
                              ||______________||
                             //                \\       
-                          // ||              || \\
-                        //   ||LA1        LA2||   \\          
-                     S1 |____||______________||____| S2                          
+                          //                    \\
+                        //                        \\          
+                     S1 |__________________________| S2                          
                    PM1 ||                          || PM2
-                        |__________________________|
-                        |                  ||| FM  |
+                     S3 |__________________________| S4
+                        |                          |
                         |      \            /      |
                         |        \        /        |
                         |          \    /          |
@@ -56,28 +69,28 @@ FM - FLipping Motor
         
 '''
 
-#Defining pins for picking and flipping motors, linear actuator, servo
-relay = Pin(8,Pin.OUT)
+#Defining pins for relay and L298N on PCA9685
+pick_mp1 = 3
+pick_mp2 = 4
+pick_men = 5
 
-pick_mp1 = Pin(5,Pin.OUT)
-pick_mp2 = Pin(6,Pin.OUT)
-pick_men = PWM(Pin(7,Pin.OUT))
+relay = 12
 
-la_mp1 = Pin(4,Pin.OUT)
-la_mp2 = Pin(3,Pin.OUT)
-la_men = PWM(Pin(2,Pin.OUT))
-la_state = 0
+#Defining pins for servo, laser, ldr
+servo_feed1 = PWM(Pin(2,Pin.OUT))
+servo_feed1.freq(50)
+servo_feed2 = PWM(Pin(3,Pin.OUT))
+servo_feed2.freq(50)
+servo_flip1 = PWM(Pin(4,Pin.OUT))
+servo_flip1.freq(50)
+servo_flip2 = PWM(Pin(5,Pin.OUT))
+servo_flip2.freq(50)
 
-servo1 = PWM(Pin(14,Pin.OUT))
-servo1.freq(50)
-servo2 = PWM(Pin(15,Pin.OUT))
-servo2.freq(50)
-servo_feed_state = 0
+servo_feed_state=0
+servo_flip_state=1
 
-flip_mp1 = Pin(10,Pin.OUT)
-flip_mp2 = Pin(11,Pin.OUT)
-flip_en = PWM(Pin(12,Pin.OUT))
-
+laser = Pin(27,Pin.OUT)
+ldr = Pin(26,Pin.IN)
 
 #Funtion for reading data from NRF and sending to PICO2
 no_of_channels = 20
@@ -89,10 +102,11 @@ def readval():
         while nrf.any():
             buf = nrf.recv()
             JS_values = list(struct.unpack("20B",buf))
-            JS_values[0] -= 132
-            JS_values[1] -= 123
-            JS_values[2] -= 123
-            JS_values[3] -= 123
+            JS_values[0] -= 128
+            JS_values[1] -= 128
+            JS_values[2] -= 128
+            JS_values[3] -= 128
+            #JS_values[:4] = [x*-1 for x in JS_values[:4]]
             #print(JS_values)
         
     message=','.join(map(str,JS_values[2:4]+JS_values[14:16]))
@@ -105,35 +119,20 @@ def pickmove(dir):
         print("Picking moving upwards")
     else:
         print("Picking moving downwards")
-
-    pick_mp1.value(not dir)
-    pick_mp2.value(dir)
-    pick_men.duty_u16(6500)
-
+    
+    pca.pwm(pick_mp1,0,(dir)*4095)
+    pca.pwm(pick_mp2,0,(not dir)*4095)
+    pca.pwm(pick_men,0,4095)
+    
 #This function is used for stopping the movement of motor which is responsible for picking
 def pickstop():
     
-    pick_mp1.value(1)
-    pick_mp2.value(1)
-    pick_men.duty_u16(0)
+    #Motors have low torque
+    pca.pwm(pick_mp1,0,0)
+    pca.pwm(pick_mp2,0,4095)
+    pca.pwm(pick_men,0,400)
     
     #print("Picking stop")
-
-#This function is used more movement of linear actuator
-def lamotion():
-
-    global la_state
-    
-    if la_state==0:
-        la_mp1.value(1)
-        la_mp2.value(0)
-        la_state=1
-        print("Linear Actuator Extend")
-    else:
-        la_mp1.value(0)
-        la_mp2.value(1)
-        la_state=0
-        print("Linear Actuator Retract")
         
 def servofeed():
     
@@ -141,49 +140,84 @@ def servofeed():
     
     #2500 = 0 degree, 7500 = 180 degree
     if servo_feed_state==0:
-        servo1.duty_u16(3500)
-        servo2.duty_u16(6500)
+        servo_feed1.duty_u16(4000)
+        servo_feed2.duty_u16(5500)
         servo_feed_state=1
         print("Servo Scoop Out")
     else:
-        servo1.duty_u16(6500)
-        servo2.duty_u16(3500)
+        servo_feed1.duty_u16(6000)
+        servo_feed2.duty_u16(3500)
         servo_feed_state=0
         print("Servo Scoop In")
-    
-        
-#Main program starts
-la_men.duty_u16(65032)
 
+def servoflip():
+    
+    global servo_flip_state
+    
+    #2500 = 0 degree, 7500 = 180 degree
+    if servo_flip_state==0:
+        servo_flip1.duty_u16(3500)
+        servo_flip2.duty_u16(6500)
+        servo_flip_state=1
+        print("Servo Flip Up")
+    else:
+        servo_flip1.duty_u16(6000)
+        servo_flip2.duty_u16(3500)
+        servo_flip_state=0
+        print("Servo Flip Down")
+    
+#Main program starts
 while True:
     
     readval()
-    if JS_values[1]>75: #Left Joystick Y axis is used for picking
-        pickmove(dir=1)
-    elif JS_values[1]<-75:
-        pickmove(dir=0)
-    else:
-        pickstop()
     
-    if JS_values[18]: #X is used for controlling motion of linear actuator
-        while True:
-            readval()
-            if not JS_values[18]:
-                break
-        lamotion()
+    laser.value(1)
+    if JS_values[12]: #L2 is used for picking up
+        laser.value(0)
+        pickmove(dir=1)
+    elif JS_values[13]: #R2 is used for picking up
+        laser.value(1)
+        if not ldr.value():
+            pickmove(dir=0)
+        else:
+            pickstop()
+        
+    else:
+        laser.value(0)
+        pickstop()
     
     if JS_values[19]: #Square is used for controlling motion of linear actuator
         while True:
             readval()
             if not JS_values[19]:
                 break
-        servofeed() 
+        servofeed()
+    
+    if JS_values[17]: #Circle is used for controlling motion of linear actuator
+        while True:
+            readval()
+            if not JS_values[17]:
+                break
+        servoflip() 
     
     if JS_values[16]>0: #Triangle is used for controlling relay
         print("Relay on")
-        relay.value(1)
+        pca.pwm(relay,0,4095)
     else:
         #print("Relay off")
-        relay.value(0)
-    
+        pca.pwm(relay,0,0)
+        
+    if JS_values[18]: #X for automation
+        while True:
+            readval()
+            if not JS_values[18]:
+                break
+        servofeed()
+        sleep(0.5)
+        servofeed()
+        sleep(0.5)
+        servoflip()
+        sleep(0.5)
+        servoflip()
+        
     sleep(0.01)
