@@ -14,17 +14,17 @@ LA - Linear Actuator
 S - Servo
 P - Piston
 PM - Picking Motor
-FM - FLipping Motor
+
 
                              __________________
                              ||______________||
                             //                \\       
-                          // ||              || \\
-                        //   ||LA1        LA2||   \\          
-                     S1 |____||______________||____| S2                          
+                          //                    \\
+                        //                        \\          
+                     S1 |__________________________| S2                          
                    PM1 ||                          || PM2
-                        |__________________________|
-                        |                  ||| FM  |
+                     S3 |__________________________| S4
+                        |                          |
                         |      \            /      |
                         |        \        /        |
                         |          \    /          |
@@ -40,17 +40,17 @@ FM - FLipping Motor
 '''
 
 #Defining pins for motors
-m1p1 = Pin(4,Pin.OUT)
-m1p2 = Pin(3,Pin.OUT)
-m1en = PWM(Pin(2,Pin.OUT))
+m1p1 = Pin(2,Pin.OUT)
+m1p2 = Pin(4,Pin.OUT)
+m1en = PWM(Pin(3,Pin.OUT))
 
 m2p1 = Pin(8,Pin.OUT)
-m2p2 = Pin(7,Pin.OUT)
-m2en = PWM(Pin(6,Pin.OUT))
+m2p2 = Pin(10,Pin.OUT)
+m2en = PWM(Pin(9,Pin.OUT))
 
-m3p1 = Pin(12,Pin.OUT)
-m3p2 = Pin(11,Pin.OUT)
-m3en = PWM(Pin(10,Pin.OUT))
+m3p1 = Pin(13,Pin.OUT)
+m3p2 = Pin(15,Pin.OUT)
+m3en = PWM(Pin(14,Pin.OUT))
 
 #Function for reading data from Pico2
 no_of_channels=4
@@ -138,9 +138,10 @@ while True:
     if command[0] or command[1]: #Right Joystick is used for x and y motion of the bot
         botmove(-command[0],command[1])
     elif command[2]: #L1 is used for rotating the bot clockwise
-        botrotate(dir=0)
-    elif command[3]: #R1 is used for rotating the bot anti-clockwise
         botrotate(dir=1)
+    elif command[3]: #R1 is used for rotating the bot anti-clockwise
+        botrotate(dir=0)
     else:  
         botstop()
     sleep(0.01)
+

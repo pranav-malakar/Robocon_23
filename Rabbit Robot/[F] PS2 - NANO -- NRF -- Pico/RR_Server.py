@@ -86,7 +86,7 @@ servo_flip1.freq(50)
 servo_flip2 = PWM(Pin(5,Pin.OUT))
 servo_flip2.freq(50)
 
-servo_feed_state=0
+servo_feed_state=1
 servo_flip_state=1
 
 laser = Pin(27,Pin.OUT)
@@ -110,7 +110,7 @@ def readval():
             #print(JS_values)
         
     message=','.join(map(str,JS_values[2:4]+JS_values[14:16]))
-    uart.write(message.encode('utf-8'))    
+    uart.write(message.encode('utf-8'))   
     
 #This function is used for the movement of motor which is responsible for picking
 def pickmove(dir):
@@ -166,12 +166,14 @@ def servoflip():
         servo_flip_state=0
         print("Servo Flip Down")
     
-#Main program starts
+#Main program starts and setting servos to their initial positions
+servo_feed1.duty_u16(3000)
+servo_feed2.duty_u16(6500)
+servo_flip1.duty_u16(3500)
+servo_flip2.duty_u16(6500)
 while True:
     
     readval()
-    
-    laser.value(1)
     if JS_values[12]: #L2 is used for picking up
         laser.value(0)
         pickmove(dir=1)
