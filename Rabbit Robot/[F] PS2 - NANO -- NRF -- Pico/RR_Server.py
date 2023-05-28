@@ -53,8 +53,8 @@ PM - Picking Motor
                         //                        \\          
                      S1 |__________________________| S2                          
                    PM1 ||                          || PM2
-                     S3 |__________________________| S4
-                        |                          |
+                        |__________________________| 
+                     S3 |--                      --| S4
                         |      \            /      |
                         |        \        /        |
                         |          \    /          |
@@ -127,13 +127,14 @@ def pickmove(dir):
 #This function is used for stopping the movement of motor which is responsible for picking
 def pickstop():
     
-    #Motors have low torque
+    #Motors have low torque so they need some upward motion to stay still
     pca.pwm(pick_mp1,0,0)
     pca.pwm(pick_mp2,0,4095)
     pca.pwm(pick_men,0,400)
     
     #print("Picking stop")
-        
+
+#This function is used for feeding the rings using servos  
 def servofeed():
     
     global servo_feed_state
@@ -150,6 +151,7 @@ def servofeed():
         servo_feed_state=0
         print("Servo Scoop In")
 
+#This function is used for flipping the rings using servos
 def servoflip():
     
     global servo_flip_state
@@ -209,7 +211,7 @@ while True:
         #print("Relay off")
         pca.pwm(relay,0,0)
         
-    if JS_values[18]: #X for automation
+    if JS_values[18]: #X is used for automation
         while True:
             readval()
             if not JS_values[18]:
