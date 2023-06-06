@@ -4,10 +4,9 @@ from machine import Pin, SPI
 from nrf24l01 import *
 from micropython import const
 
+pipe = (b"\x41\x41\x41\x41\x41") # 'AAAAA' on the ardinuo
 recvint = 0
-pipe = (b"\x42\x42\x42\x42\x42") # 'BBBBB' on the ardinuo
-spi = SPI(0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
-cfg = {"spi": 0, "miso": 16, "mosi": 19, "sck": 18, "csn": 17, "ce": 20} 
+cfg = {"spi": 0, "miso": 4, "mosi": 7, "sck": 6, "csn": 14, "ce": 17}   
 csn = Pin(cfg["csn"], mode=Pin.OUT, value=1)
 ce = Pin(cfg["ce"], mode=Pin.OUT, value=0)
 
