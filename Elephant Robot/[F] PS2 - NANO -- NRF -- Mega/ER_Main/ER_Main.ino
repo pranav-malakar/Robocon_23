@@ -27,7 +27,7 @@ SM - Shooting Motor
                         |                          | 
                    PM1 ||                          || PM2
                         |__________________________|| FM 
-                   M1 |||                          ||| M4
+                   M4 |||                          ||| M3
                       |||        --> ||            |||
                         |     |||| \_||_/          |
                         |      P1    ||            |
@@ -35,7 +35,7 @@ SM - Shooting Motor
                         |            ||            |
                         |            ||            |
                         |            ||            |
-                   M2 |||            ||||          ||| M3
+                   M1 |||            ||||          ||| M2
                       |||              SM          |||
                         |__________________________|
                                     
@@ -48,14 +48,14 @@ SM - Shooting Motor
 #define ldr A1
 
 //Defining pins for Drive (Cytron)
-#define drive_m1dir A12
-#define drive_m1pwm 11
-#define drive_m2dir A15
-#define drive_m2pwm 10
-#define drive_m3dir A13
-#define drive_m3pwm 12
-#define drive_m4dir A14 
-#define drive_m4pwm 9
+#define drive_m1dir A14
+#define drive_m1pwm 9
+#define drive_m2dir A13
+#define drive_m2pwm 12
+#define drive_m3dir A12
+#define drive_m3pwm 11
+#define drive_m4dir A15 
+#define drive_m4pwm 10
 
 //Defining pins for motors for picking (Cytron)
 #define pick_m1dir 7
@@ -64,8 +64,8 @@ SM - Shooting Motor
 #define pick_m2pwm 6
 
 //Defining pins for motor for shooting (Cytron)
-#define shoot_mdir 24
-#define shoot_mpwm 4
+#define shoot_mdir 22
+#define shoot_mpwm 3
 
 //Defining pins for motor for feeding (L298N)
 #define feed_min1 30
@@ -81,10 +81,10 @@ SM - Shooting Motor
 //This function is used for moving the bot
 void botmove(int Vx=0, int Vy=0)
 {
-    int m1speed= 40*((float)(-Vx+Vy)/128);
+    int m1speed= 40*((float)(Vx-Vy)/128);
     int m2speed= 40*((float)(Vx+Vy)/128);
-    int m3speed= 40*((float)(Vx+Vy)/128);
-    int m4speed= 40*((float)(-Vx+Vy)/128);
+    int m3speed= 40*((float)(-Vx+Vy)/128);
+    int m4speed= 40*((float)(-Vx-Vy)/128);
 
     digitalWrite(drive_m1dir,m1speed>0);
     digitalWrite(drive_m2dir,m2speed>0);
@@ -107,9 +107,9 @@ void botrotate(int dir=0, int speed=0)
     else
         Serial.println("Bot Rotate Clockwise");
 
-    digitalWrite(drive_m1dir,!dir);
+    digitalWrite(drive_m1dir,dir);
     digitalWrite(drive_m2dir,dir);
-    digitalWrite(drive_m3dir,!dir);
+    digitalWrite(drive_m3dir,dir);
     digitalWrite(drive_m4dir,dir);
 
     analogWrite(drive_m1pwm,speed);
@@ -258,15 +258,15 @@ void loop()
     //Drive Control
     if (command[2] || command[3]) //Right Joystick is used for controlling the motion of the drive
     {
-        botmove(command[2],command[3]); //Vx,Vy
+        botmove(command[2],-command[3]); //Vx,Vy
     }
     else if (command[14]) //L1 is used for rotating the bot anti-clockwise
     {
-        botrotate(0,40); //dir,speed
+        botrotate(1,40); //dir,speed
     }
     else if (command[15]) //R1 is used for rotating the bot clockwise
     {
-        botrotate(1,40); //dir,speed
+        botrotate(0,40); //dir,speed
     }
     else
     {
