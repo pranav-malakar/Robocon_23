@@ -144,4 +144,3 @@ while True:
     else:  
         botstop()
     sleep(0.01)
-

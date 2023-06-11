@@ -11,7 +11,7 @@ from pca9685 import PCA9685
 uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1))
 
 #Setting up SPI pins for NRF
-pipe = (b"\x41\x41\x41\x41\x41") # 'AAAAA' on the ardinuo
+pipe = (b"\x53\x49\x44\x4D\x41") # 'SIDMA' on the arduino
 spi = SPI(0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
 cfg = {"spi": 0, "miso": 16, "mosi": 19, "sck": 18, "csn": 17, "ce": 20} 
 csn = Pin(cfg["csn"], mode=Pin.OUT, value=1)
@@ -74,7 +74,7 @@ pick_mp1 = 3
 pick_mp2 = 4
 pick_men = 5
 
-relay = 12
+relay = 15
 
 #Defining pins for servo, laser, ldr
 servo_feed1 = PWM(Pin(2,Pin.OUT))
@@ -139,15 +139,15 @@ def servofeed():
     
     global servo_feed_state
     
-    #2500 = 0 degree, 7500 = 180 degree
+    #Range 2500~7500
     if servo_feed_state==0:
-        servo_feed1.duty_u16(4000)
-        servo_feed2.duty_u16(5500)
+        servo_feed1.duty_u16(2500)
+        servo_feed2.duty_u16(6800)
         servo_feed_state=1
         print("Servo Scoop Out")
     else:
-        servo_feed1.duty_u16(6000)
-        servo_feed2.duty_u16(3500)
+        servo_feed1.duty_u16(4000)
+        servo_feed2.duty_u16(5500)
         servo_feed_state=0
         print("Servo Scoop In")
 
@@ -156,27 +156,28 @@ def servoflip():
     
     global servo_flip_state
     
-    #2500 = 0 degree, 7500 = 180 degree
+    #Range 2500~7500
     if servo_flip_state==0:
-        servo_flip1.duty_u16(3500)
-        servo_flip2.duty_u16(6500)
+        servo_flip1.duty_u16(1700)
+        servo_flip2.duty_u16(7500)
         servo_flip_state=1
         print("Servo Flip Up")
     else:
-        servo_flip1.duty_u16(6000)
-        servo_flip2.duty_u16(3500)
+        servo_flip1.duty_u16(6500)
+        servo_flip2.duty_u16(3000)
         servo_flip_state=0
         print("Servo Flip Down")
     
-#Main program starts and setting servos to their initial positions
-servo_feed1.duty_u16(3000)
-servo_feed2.duty_u16(6500)
-servo_flip1.duty_u16(3500)
-servo_flip2.duty_u16(6500)
+#Main program starts, setting servos to their initial positions and giving high to relay
+servo_feed1.duty_u16(1900)
+servo_feed2.duty_u16(7500)
+servo_flip1.duty_u16(1700)
+servo_flip2.duty_u16(7500)
+pca.pwm(relay,0,4095)
 while True:
     
     readval()
-    if JS_values[12]: #L2 is used for picking up
+    if JS_values[12]: #L2 is used for picking down
         laser.value(0)
         pickmove(dir=1)
     elif JS_values[13]: #R2 is used for picking up
@@ -190,14 +191,14 @@ while True:
         laser.value(0)
         pickstop()
     
-    if JS_values[19]: #Square is used for controlling motion of linear actuator
+    if JS_values[19]: #Square is used for servos for feeding
         while True:
             readval()
             if not JS_values[19]:
                 break
         servofeed()
     
-    if JS_values[17]: #Circle is used for controlling motion of linear actuator
+    if JS_values[17]: #Circle is used for servos for flipping
         while True:
             readval()
             if not JS_values[17]:
@@ -206,10 +207,10 @@ while True:
     
     if JS_values[16]>0: #Triangle is used for controlling relay
         print("Relay on")
-        pca.pwm(relay,0,4095)
+        pca.pwm(relay,0,0)
     else:
         #print("Relay off")
-        pca.pwm(relay,0,0)
+        pca.pwm(relay,0,4095)
         
     if JS_values[18]: #X is used for automation
         while True:
@@ -221,7 +222,11 @@ while True:
         servofeed()
         sleep(0.5)
         servoflip()
-        sleep(0.5)
+        sleep(1)
         servoflip()
+        sleep(0.5)
+        pca.pwm(relay,0,0)
+        sleep(0.5)
+        pca.pwm(relay,0,4095)
         
     sleep(0.01)
