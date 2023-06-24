@@ -109,7 +109,7 @@ def readval():
             #JS_values[:4] = [x*-1 for x in JS_values[:4]]
             #print(JS_values)
         
-    message=','.join(map(str,JS_values[2:4]+JS_values[14:16]))
+    message=','.join(map(str,JS_values[2:4]+JS_values[14:16]+JS_values[8:12]))
     uart.write(message.encode('utf-8'))   
     
 #This function is used for the movement of motor which is responsible for picking
@@ -141,12 +141,12 @@ def servofeed():
     
     #Range 2500~7500
     if servo_feed_state==0:
-        servo_feed1.duty_u16(2500)
-        servo_feed2.duty_u16(6800)
+        servo_feed1.duty_u16(2400)
+        servo_feed2.duty_u16(6700)
         servo_feed_state=1
         print("Servo Scoop Out")
     else:
-        servo_feed1.duty_u16(4000)
+        servo_feed1.duty_u16(3600)
         servo_feed2.duty_u16(5500)
         servo_feed_state=0
         print("Servo Scoop In")
@@ -169,7 +169,7 @@ def servoflip():
         print("Servo Flip Down")
     
 #Main program starts, setting servos to their initial positions and giving high to relay
-servo_feed1.duty_u16(1900)
+servo_feed1.duty_u16(1500)
 servo_feed2.duty_u16(7500)
 servo_flip1.duty_u16(1700)
 servo_flip2.duty_u16(7500)

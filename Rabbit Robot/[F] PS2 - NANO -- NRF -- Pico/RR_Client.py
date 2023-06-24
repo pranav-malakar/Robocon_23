@@ -53,7 +53,7 @@ m3p2 = Pin(15,Pin.OUT)
 m3en = PWM(Pin(14,Pin.OUT))
 
 #Function for reading data from Pico2
-no_of_channels=4
+no_of_channels=8
 command = [0]*no_of_channels
 def readval():
     
@@ -137,6 +137,10 @@ while True:
     readval()
     if command[0] or command[1]: #Right Joystick is used for x and y motion of the bot
         botmove(-command[0],command[1])
+    elif command[4]: #DPAD UP is used for moving the bot slowly forward
+        botmove(0,-50)
+    elif command[6]: #DPAD DOWN is used for moving the bot slowly backward
+        botmove(0,50)
     elif command[2]: #L1 is used for rotating the bot clockwise
         botrotate(dir=1)
     elif command[3]: #R1 is used for rotating the bot anti-clockwise
